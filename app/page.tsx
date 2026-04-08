@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import InputSection from "@/components/InputSection";
 import ResultCards from "@/components/ResultCards";
+import SaveButton from "@/components/SaveButton";
+import { createClient } from "@/lib/supabase/client";
 import { AnalysisResult } from "@/lib/types";
+import type { User } from "@supabase/supabase-js";
 
 type AppState = "idle" | "loading" | "done" | "error";
 
@@ -11,6 +14,19 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [result, setResult] = useState<AnalysisResult>({});
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  // 로그인 상태 구독
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSubmit = async (formData: FormData) => {
     setAppState("loading");
@@ -40,7 +56,6 @@ export default function Home() {
 
         const chunk = decoder.decode(value, { stream: true });
 
-        // Check for server-side error signal
         if (chunk.includes("__ERROR__:")) {
           const msg = chunk.split("__ERROR__:")[1]?.trim();
           throw new Error(msg ?? "분석 중 오류가 발생했습니다.");
@@ -48,7 +63,6 @@ export default function Home() {
 
         buffer += chunk;
 
-        // Parse complete sections as they appear in the stream
         const sectionRegex =
           /<section name="(\w+)">\s*([\s\S]*?)\s*<\/section>/g;
         let match: RegExpExecArray | null;
@@ -57,12 +71,9 @@ export default function Home() {
           const [, sectionName, jsonStr] = match;
           try {
             const data = JSON.parse(jsonStr.trim());
-            setResult((prev) => ({
-              ...prev,
-              [sectionName]: data,
-            }));
+            setResult((prev) => ({ ...prev, [sectionName]: data }));
           } catch {
-            // Section JSON not yet fully received, continue buffering
+            // 섹션 JSON이 아직 완전히 수신되지 않음, 계속 버퍼링
           }
         }
       }
@@ -81,27 +92,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#f8f8f6]">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <GroundedLogo />
-            <div>
-              <h1 className="text-base font-bold text-gray-900 leading-tight">
-                Grounded
-              </h1>
-              <p className="text-xs text-gray-400 leading-tight">
-                모든 이야기에는 근거가 있어야 한다
-              </p>
-            </div>
-          </div>
-          <span className="text-xs text-gray-300 font-medium hidden sm:block">
-            MVP · Powered by Claude
-          </span>
-        </div>
-      </header>
-
-      {/* Main content */}
       <main className="max-w-5xl mx-auto px-6 py-10">
         <div
           className={`grid gap-8 transition-all ${
@@ -110,32 +100,32 @@ export default function Home() {
               : "grid-cols-1 max-w-xl mx-auto"
           }`}
         >
-          {/* Left: Input */}
+          {/* 왼쪽: 입력 */}
           <div>
-            {/* Hero text (only when idle) */}
             {appState === "idle" && (
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 leading-snug">
-                  문헌을 넣으면<br />
-                  구조가 보입니다
+                  문헌을 넣고, 구조를 확인해 보세요.
                 </h2>
-                <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-                  PDF나 텍스트를 업로드하면 주제·방법론·결론·시사점·반론을
-                  자동으로 추출하고, 각 항목의 원문 근거를 추적합니다.
+                <p className="text-sm text-gray-500 mt-2 leading-snug">
+                  <span className="block">PDF나 텍스트를 업로드해 보세요.</span>
+                  <span className="block mt-1">문헌의 핵심 구조를 추출하고, 각 항목의 근거를 원문과 함께 제공합니다.</span>
                 </p>
-
-                {/* Target users */}
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {["대학원생 · 연구자", "PM · 기획자", "컨설턴트", "기자 · 크리에이터"].map(
-                    (label) => (
-                      <span
-                        key={label}
-                        className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500"
-                      >
-                        {label}
-                      </span>
-                    )
-                  )}
+                  {[
+                    "주제",
+                    "방법론",
+                    "결론",
+                    "시사점",
+                    "반론",
+                  ].map((label) => (
+                    <span
+                      key={label}
+                      className="px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500"
+                    >
+                      {label}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -144,15 +134,24 @@ export default function Home() {
               <InputSection onSubmit={handleSubmit} isLoading={isStreaming} />
             </div>
 
-            {/* Error message */}
             {appState === "error" && error && (
               <div className="mt-3 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
                 <strong className="font-medium">오류:</strong> {error}
               </div>
             )}
+
+            {/* 저장 버튼 (분석 완료 시) */}
+            {appState === "done" && (
+              <div className="mt-4 px-1">
+                <SaveButton
+                  result={result as AnalysisResult}
+                  isLoggedIn={!!user}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Right: Results */}
+          {/* 오른쪽: 결과 */}
           {(hasResults || isStreaming) && (
             <div className="animate-fade-in">
               <ResultCards result={result} isStreaming={isStreaming} />
@@ -160,32 +159,6 @@ export default function Home() {
           )}
         </div>
       </main>
-    </div>
-  );
-}
-
-function GroundedLogo() {
-  return (
-    <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 18 18"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* Anchor-like icon representing "grounded" */}
-        <circle cx="9" cy="5" r="2" stroke="white" strokeWidth="1.5" />
-        <line x1="9" y1="7" x2="9" y2="15" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-        <path
-          d="M5 10.5 Q9 13.5 13 10.5"
-          stroke="white"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <line x1="5" y1="15" x2="13" y2="15" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
     </div>
   );
 }

@@ -23,6 +23,14 @@ export interface SectionMeta {
   textColor: string;
 }
 
+export interface SavedAnalysis {
+  id: string;
+  user_id: string;
+  title: string;
+  result: AnalysisResult;
+  created_at: string;
+}
+
 export const SECTIONS: SectionMeta[] = [
   {
     key: "topic",

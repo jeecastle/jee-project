@@ -4,9 +4,15 @@ import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Debug: 서버 시작 시 키 로드 여부 확인 (키 값은 노출하지 않음)
+const apiKey = process.env.ANTHROPIC_API_KEY;
+console.log("[Grounded] ANTHROPIC_API_KEY:", apiKey ? `설정됨 (${apiKey.slice(0, 8)}...)` : "❌ 없음 — .env.local 확인 필요");
+
+if (!apiKey || apiKey === "your_api_key_here") {
+  console.error("[Grounded] 유효한 ANTHROPIC_API_KEY가 없습니다. .env.local을 확인하세요.");
+}
+
+const anthropic = new Anthropic({ apiKey });
 
 const SYSTEM_PROMPT = `You are a rigorous research document analyzer. Analyze the provided document and extract structured insights.
 
@@ -43,6 +49,16 @@ Rules:
 - Ensure valid JSON inside each section tag (properly escaped quotes, no trailing commas)`;
 
 export async function POST(req: NextRequest) {
+  // API 키 없으면 즉시 명확한 에러 반환
+  if (!apiKey || apiKey === "your_api_key_here") {
+    return new Response(
+      JSON.stringify({
+        error: "ANTHROPIC_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   let text = "";
 
   const contentType = req.headers.get("content-type") ?? "";
