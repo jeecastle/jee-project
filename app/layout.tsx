@@ -4,7 +4,6 @@ import Script from "next/script";
 import "./globals.css";
 import Link from "next/link";
 import AuthButton from "@/components/AuthButton";
-import { createClient } from "@/lib/supabase/server";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,16 +16,11 @@ export const metadata: Metadata = {
     "PDF나 텍스트를 업로드하면 주제·방법론·결론·시사점·반론을 구조적으로 추출하고, 각 항목의 원문 근거를 추적합니다.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   return (
     <html lang="ko">
       <body className={`${inter.variable} font-sans antialiased`}>
@@ -58,7 +52,7 @@ export default async function RootLayout({
                 </span>
               </div>
             </Link>
-            <AuthButton initialUserEmail={user?.email} />
+            <AuthButton />
           </div>
         </header>
         {children}

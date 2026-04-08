@@ -4,25 +4,24 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
 
-interface AuthButtonProps {
-  initialUserEmail?: string | null;
-}
-
-export default function AuthButton({ initialUserEmail }: AuthButtonProps) {
-  const [userEmail, setUserEmail] = useState<string | null>(
-    initialUserEmail ?? null
-  );
+export default function AuthButton() {
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
+    // 1. 초기 사용자 상태 가져오기
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email ?? null);
+    });
+
+    // 2. 인증 상태 변경 구독
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_, session) => {
       setUserEmail(session?.user?.email ?? null);
-      router.refresh(); // 서버 컴포넌트(레이아웃 등) 재렌더
+      router.refresh();
     });
     return () => subscription.unsubscribe();
   }, [supabase, router]);
