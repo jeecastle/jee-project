@@ -16,6 +16,10 @@ export default function SaveButton({ result, isLoggedIn }: SaveButtonProps) {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleSave = async () => {
+    if (typeof window !== "undefined" && (window as any).gtag) {
+      (window as any).gtag("event", "save_analysis");
+    }
+
     setStatus("saving");
     setErrorMsg("");
 

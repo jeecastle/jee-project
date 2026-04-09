@@ -18,6 +18,11 @@ export default function InputSection({ onSubmit, isLoading }: InputSectionProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (typeof window !== "undefined" && (window as any).gtag) {
+      (window as any).gtag("event", "analyze_document");
+    }
+
     const fd = new FormData();
     if (mode === "pdf" && file) {
       fd.append("file", file);
@@ -31,7 +36,12 @@ export default function InputSection({ onSubmit, isLoading }: InputSectionProps)
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped?.type === "application/pdf") setFile(dropped);
+    if (dropped?.type === "application/pdf") {
+      setFile(dropped);
+      if (typeof window !== "undefined" && (window as any).gtag) {
+        (window as any).gtag("event", "upload_pdf");
+      }
+    }
   };
 
   const canSubmit =
@@ -78,7 +88,13 @@ export default function InputSection({ onSubmit, isLoading }: InputSectionProps)
             type="file"
             accept=".pdf,application/pdf"
             className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              const selectedFile = e.target.files?.[0] ?? null;
+              setFile(selectedFile);
+              if (selectedFile && typeof window !== "undefined" && (window as any).gtag) {
+                (window as any).gtag("event", "upload_pdf");
+              }
+            }}
           />
           {file ? (
             <>
